@@ -25,7 +25,7 @@ async function startBot() {
 
     // PAIRING CODE LOGIC - Hamarino tsara ny laharana eto
     if (!sock.authState.creds.registered) {
-        const phoneNumber = "261382266876"; 
+        const phoneNumber = "261322968586"; 
         console.log("Maka ny Pairing Code ho an'ny: " + phoneNumber);
         
         // Miandry kely 10 segondra vao mangataka
