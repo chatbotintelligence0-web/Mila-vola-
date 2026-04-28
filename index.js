@@ -1,7 +1,6 @@
 const {
     default: makeWASocket,
     useMultiFileAuthState,
-    delay,
     DisconnectReason,
     makeCacheableSignalKeyStore,
     fetchLatestBaileysVersion
@@ -9,11 +8,9 @@ const {
 const pino = require("pino");
 const { Boom } = require("@hapi/boom");
 
-const warnCount = {};
-
 async function startBot() {
+    // Railway dia mampiasa an'ity folder ity hitahirizana ny session
     const { state, saveCreds } = await useMultiFileAuthState('auth_info');
-    const { version } = await fetchLatestBaileysVersion();
     
     const sock = makeWASocket({
         auth: {
@@ -22,21 +19,24 @@ async function startBot() {
         },
         printQRInTerminal: false,
         logger: pino({ level: "silent" }),
-        browser: ["Ubuntu", "Chrome", "20.0.04"],
+        //browser: ["Ubuntu", "Chrome", "121.0.6167.160"],
+        browser: ["Mac OS", "Safari", "17.4.1"],
     });
 
-    // PAIRING CODE LOGIC (Laharana: 261382266876)
+    // PAIRING CODE LOGIC - Hamarino tsara ny laharana eto
     if (!sock.authState.creds.registered) {
         const phoneNumber = "261382266876"; 
-        console.log("Miandry 10 segondra alohan'ny hamoahana ny Pairing Code...");
+        console.log("Maka ny Pairing Code ho an'ny: " + phoneNumber);
+        
+        // Miandry kely 10 segondra vao mangataka
         setTimeout(async () => {
             try {
                 let code = await sock.requestPairingCode(phoneNumber);
-                console.log("\n-----------------------------");
+                console.log("\n=============================");
                 console.log("NY PAIRING CODE-NAO DIA:", code);
-                console.log("-----------------------------\n");
+                console.log("=============================\n");
             } catch (err) {
-                console.log("Tsy afaka nampitambatra tamin'izao. Miandrasa kely (Rate Limit).");
+                console.log("Misy olana kely ny serveur. Andramo indray afaka 5 minitra.");
             }
         }, 10000);
     }
@@ -52,64 +52,35 @@ async function startBot() {
         const text = msg.message.conversation || msg.message.extendedTextMessage?.text || "";
         const sender = msg.key.participant || jid;
 
-        // --- HAFATRA FAMPANDRENESANA VAOVAO (Tsy misy kintana) ---
-        const announcement = `FAMPANDRENESANA LEHIBE - NEXUS MADA
+        // --- HAFATRA ANNONCE FENO ---
+        const announcement = "FAMPANDRENESANA LEHIBE - NEXUS MADA\n\n" +
+        "1. Noho ny olana misy teo amin'ny compte NEXUS teo aloha dia nanapakevitra izahay namindra ny NEXUS amin'ny seveur hafa. Noho izany nisy zavatra niova tao, toy ny: base de données, stokage sns...\n\n" +
+        "2. Noho fioavan'ireo base de données ireo dia voafafa ny mombamomba atsika teo aloha ka tsy afaka miditra amin'izny intsony ianao.\n\n" +
+        "3. Fa amizao dia mila mamerina manao inscription indray ianao amin'ity lien d'inscription ity ihany fa tsy amin'i taloha iny intsony:\n" +
+        "https://nexusmada.vercel.app?ref=be-ge116\n\n" +
+        "4. Zava-misy mety hiverina zero ny compte nao, fa aza mataotra fa omena bonus daholy ianareo rehetra.\n\n" +
+        "5. Ho an'i mpandefa asa dia mandefa message privé aty aminay mba afahana mampiditra indray ilay depot anao ao amin'i NEXUS, ary afahanao mamerina mandefa ilay asa indray ao izany.\n\n" +
+        "TOROLALANA (GUIDE):\n" +
+        "Azonao jerena ato ny torolalana rehetra (Installation, Boost, Tâches):\n" +
+        "https://drive.google.com/file/d/126zJCOzbBbV16O9irm15eoOs9PuOSmr9/view?usp=drivesdk\n\n" +
+        "Admin: 0382266876";
 
-1. Noho ny olana nisy teo amin'ny compte NEXUS teo aloha dia nanapa-kevitra izahay namindra ny NEXUS amin'ny serveur hafa. Noho izany nisy zavatra niova tao, toy ny: base de données, stockage sns...
+        // Famaliana .nexus na .start
+        if (text.toLowerCase() === '.nexus' || text.toLowerCase() === '.start') {
+            await sock.sendMessage(jid, { text: announcement, mentions: [sender] }, { quoted: msg });
+        }
 
-2. Noho ny fiovan'ireo base de données ireo dia voafafa ny mombamomba antsika teo aloha ka tsy afaka miditra amin'izany intsony ianao.
-
-3. Fa amin'izao dia mila mamerina manao inscription indray ianao amin'ity lien d'inscription ity ihany fa tsy amin'ny taloha iny intsony:
-https://nexusmada.vercel.app?ref=be-ge116
-
-4. Zava-misy mety hiverina zero ny compte-nao, fa aza mataotra fa omena bonus daholo ianareo rehetra.
-
-5. Ho an'ny mpandefa asa dia mandefa message privé aty aminay mba ahafahana mampiditra indray ilay depot anao ao amin'ny NEXUS, ary ahafahanao mamerina mandefa ilay asa indray ao izany.
-
-TUTORIAL SY TARIDALANA:
-- Guide Installation App: https://drive.google.com/file/d/LIEN_DRIVE_INSTALL
-- Guide Boost Page sy Referral: https://drive.google.com/file/d/LIEN_DRIVE_REFERRAL
-- Guide Tâche (Asa): https://drive.google.com/file/d/LIEN_DRIVE_TACHE
-
-Admin: 0382266876`;
-
+        // ANTI-LINK (Famafana automatique ao amin'ny Group)
         if (isGroup) {
-            // Hamaly automatique rehefa misy miteny ".nexus" na ".start"
-            if (text.toLowerCase() === '.nexus' || text.toLowerCase() === '.start') {
-                await sock.sendMessage(jid, { 
-                    text: announcement, 
-                    mentions: [sender] 
-                }, { quoted: msg });
-            }
-
-            // --- ANTI-LINK (Fafana izay mandefa lien hafa) ---
             const linkRegex = /https?:\/\/[^\s]+/;
             if (linkRegex.test(text)) {
-                // Ireo lien ekena (Vercel, Lovable, Google Drive)
+                // Ireto lien ireto ihany no azo alefa
                 const isSafe = text.includes('vercel.app') || text.includes('lovable.app') || text.includes('drive.google.com');
-                
                 if (!isSafe) {
-                    try {
-                        await sock.sendMessage(jid, { delete: msg.key });
+                    try { 
+                        await sock.sendMessage(jid, { delete: msg.key }); 
                     } catch (e) {
-                        console.log("Mila atao Admin ny bot mba hahafahany mamafa lien.");
-                    }
-
-                    if (!warnCount[sender]) {
-                        warnCount[sender] = 1;
-                        await sock.sendMessage(jid, { 
-                            text: `⚠️ @${sender.split('@')[0]}, voarara ny mandefa rohy hafa ankoatra ny Vercel, Lovable, na Google Drive ato! Fampitandremana farany io.`,
-                            mentions: [sender]
-                        });
-                    } else {
-                        try {
-                            await sock.sendMessage(jid, { text: `🚫 @${sender.split('@')[0]} nampitandremana nefa mbola mamerina, esorina ato amin'ny groupe.`, mentions: [sender] });
-                            await delay(1000);
-                            await sock.groupParticipantsUpdate(jid, [sender], "remove");
-                            delete warnCount[sender];
-                        } catch (e) {
-                            console.log("Tsy afaka nandroaka olona.");
-                        }
+                        console.log("Tsy afaka namafa hafatra: Mila atao Admin ny Bot.");
                     }
                 }
             }
@@ -122,7 +93,7 @@ Admin: 0382266876`;
             const shouldReconnect = (lastDisconnect.error instanceof Boom)?.output?.statusCode !== DisconnectReason.loggedOut;
             if (shouldReconnect) startBot();
         } else if (connection === 'open') {
-            console.log('✅ Tafiditra soa aman-tsara ny Bot NEXUS!');
+            console.log('✅ TAFIDITRA SOA AMAN-TSARA NY BOT NEXUS!');
         }
     });
 }
